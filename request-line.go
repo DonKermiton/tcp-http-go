@@ -40,34 +40,45 @@ func newRequestLine(line string) *requestLine {
 }
 
 func (r *requestLine) decode() error {
-	requestComponents := strings.Split(r.rawRequestLine, " ")
+	requestComponents, err := splitRequestHeaderAndValidate(r.rawRequestLine)
 
-	numberOfRequestComponents := len(requestComponents)
-
-	if numberOfRequestComponents < 2 || numberOfRequestComponents > 3 {
-		return fmt.Errorf("provided wrong number of args in http")
+	if err != nil {
+		return err
 	}
 
-	validRequestHeader := isMethodCorrect(requestComponents[0]) && isHttpVersionCorrect(requestComponents[1])
-
-	if !validRequestHeader {
-		return fmt.Errorf("provided wrong protocol version or method type")
-	}
-
-	if numberOfRequestComponents == 2 {
-		r.httpVersion = HTTP09
+	if isMethodCorrect(requestComponents[0]) == false {
+		return fmt.Errorf("invalid method")
 	}
 
 	r.method = requestComponents[0]
 	r.path = requestComponents[1]
 
-	if numberOfRequestComponents == 2 {
+	switch len(requestComponents) {
+	case 2:
 		r.httpVersion = HTTP09
-	} else if numberOfRequestComponents == 3 {
+		break
+	case 3:
+		if isHttpVersionCorrect(requestComponents[2]) == false {
+			return fmt.Errorf("invalid http protocol version")
+		}
+
 		r.httpVersion = requestComponents[2]
+		break
+	default:
+		return fmt.Errorf("something went wrong with parsing http request line. Check is valid")
 	}
 
 	return nil
+}
+
+func splitRequestHeaderAndValidate(rawRequestLine string) ([]string, error) {
+	requestComponents := strings.Split(rawRequestLine, " ")
+
+	if len(requestComponents) != 2 && len(requestComponents) != 3 {
+		return nil, fmt.Errorf("invalid number of components in request line")
+	}
+
+	return requestComponents, nil
 }
 
 func isMethodCorrect(method string) bool {
